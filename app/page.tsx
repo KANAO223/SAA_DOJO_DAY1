@@ -303,8 +303,18 @@ export default function Home() {
       {/* ───────── 本体 ───────── */}
       <div className="main">
         <header className="topbar">
-          <span className="t">{titles[view][0]}</span>
-          <span className="d">{titles[view][1]}</span>
+          <div className="topbar-main">
+            <span className="t">{titles[view][0]}</span>
+            {view === "list" ? (
+              <div className="d topbar-desc">
+                <div>{TEXT.sub}</div>
+                <div>{TEXT.stat2}のものは、赤色のバッジで分かります。</div>
+                <div>対応が終わったら、行の「{TEXT.toTo}」を押してください。</div>
+              </div>
+            ) : (
+              <span className="d">{titles[view][1]}</span>
+            )}
+          </div>
           {view === "list" && (
             <span className="right">
               <button className="btn" onClick={() => { resetForm(); setView("new"); }}>新規登録</button>
