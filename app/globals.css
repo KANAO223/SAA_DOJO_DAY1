@@ -209,9 +209,11 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
   padding: var(--s4) var(--s6); display: flex; align-items: center; gap: var(--s3);
   position: sticky; top: 0; z-index: 5;
 }
+.topbar-main { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
 .topbar .t { font-size: var(--t-lg); font-weight: 700; }
 .topbar .d { font-size: var(--t-sm); color: var(--text-weak); }
-.topbar .right { margin-left: auto; display: flex; align-items: center; gap: var(--s2); }
+.topbar-desc { gap: 2px; line-height: 1.6; }
+.topbar .right { margin-left: auto; align-self: flex-start; display: flex; align-items: center; gap: var(--s2); }
 .content { padding: var(--s6); max-width: 1040px; width: 100%; }
 
 /* 検索・絞り込み */

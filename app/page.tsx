@@ -1,8 +1,6 @@
 // ─────────────────────────────────────────────────────────
-// これは「業務アプリの画面」です。宣伝ページ（LP）ではありません。
-//
-// /build を実行すると、docs/03_spec.md にそって
-// この構造を保ったまま、あなたの題材のツールに作り替えられます。
+// 空想路線ノート ── 考えた路線を1本ずつ登録して、
+// どの段階で止まっているかを一覧で見る画面です。
 //
 // 画面の骨格（この形は崩さない）:
 //   左メニュー（.side）＋ 上部バー（.topbar）＋ 本体（.content）
@@ -13,87 +11,72 @@
 import { useEffect, useMemo, useState } from "react";
 
 // ═══════════════════════════════════════════════════════════
-//  画面の型 ── ここだけ選び直せば、見た目と並び方が変わります
-//  /build が docs/03_spec.md の「0. 画面の型」を見てここを設定します。
-//  ⚠ 新しいCSSは書かない。下の選択肢から選ぶこと。
+//  画面の型 ── docs/03_spec.md「0. 画面の型」のとおりに設定
+//  ⚠ 新しいCSSは書かない。用意された選択肢から選ぶこと。
 // ═══════════════════════════════════════════════════════════
 
-/** 色み。業種の空気に合わせる
- *  "pine"   教育・サービス・その他（初期値）
- *  "indigo" 士業・不動産・BtoB
- *  "clay"   建設・工務店・現場仕事
- *  "sea"    医療・介護・公共
- *  "wine"   飲食・小売・美容
- */
+/** 色み。小学生の遊び・学びの道具なので pine（教育・サービス・その他） */
 const TONE = "pine";
 
-/** 密度。1日に見る件数で決める
- *  "compact" 1日20件以上（多くの行を1画面に）
- *  "normal"  ふつう（初期値）
- *  "roomy"   1日5件以下で、1件が重い（ゆったり）
- */
-const DENSITY = "normal";
+/** 密度。1本に40〜60分かかり、1日1本以下。1件が重いので roomy */
+const DENSITY = "roomy";
 
-/** 画面の型。3行目「何が一覧で見られると助かるか」で決める
- *  "queue" 待たせているものを、古い順に片づける（問い合わせ・依頼・返信）
- *  "stage" いくつかの段階を順に進んでいく（査定→撮影→値付け→出品）
- *  "due"   期限がある（締切・訪問予定・提出物・更新期限）
- */
-const LAYOUT: "queue" | "stage" | "due" = "queue";
+/** 画面の型。「どの段階で止まっているか」が主役なので stage */
+const LAYOUT: "queue" | "stage" | "due" = "stage";
 
-/** 数え方。件 / 名 / 棟 / 台 / 点 / 本 など、その仕事の言葉で */
-const UNIT = "件";
+/** 数え方。路線は「1本、2本」と数える */
+const UNIT = "本";
 
-/** 区分の選択肢。LAYOUT が "stage" のときは、これが「段階」になる（順番どおりに並ぶ） */
-const CATEGORIES = ["LINE", "電話", "メール", "紹介"];
+/** LAYOUT が "stage" なので、これがそのまま「段階」になる（左から順に進む） */
+const CATEGORIES = ["駅えらび", "ルートぎめ", "下書き", "清書ずみ"];
 
 // ═══════════════════════════════════════════════════════════
 
-/** 1件のデータ。/build でこの項目名を題材に合わせて変える */
-type Record = {
+/** 空想路線1本ぶんのデータ（項目は5つまで） */
+type Rosen = {
   id: string;
-  name: string;      // 主たる名前（顧客名・品名など）
-  category: string;  // 区分／段階／種別
-  note: string;      // メモ
-  date: string;      // YYYY-MM-DD（queue=受けた日 / stage=受け入れた日 / due=期限）
-  done: boolean;     // 片づいたか
+  title: string;     // 路線名
+  stage: string;     // いまの段階
+  stations: string;  // 通る駅
+  date: string;      // YYYY-MM-DD（思いついた日）
+  done: boolean;     // できあがったか
 };
 
 type View = "list" | "new" | "settings";
 type Filter = "open" | "done" | "all";
 
-const KEY = "starter-records";
-const NAME_KEY = "starter-appname";
+const KEY = "rosen-data";
+const NAME_KEY = "rosen-appname";
 
 /** 画面の型ごとの言葉。ここを直せば画面じゅうの文言が揃って変わる */
 const TEXT = {
   queue: {
-    sub: "未対応のものが、待たせている順に並びます",
-    open: "未対応", done: "対応済",
-    toTo: "対応済みにする", toBack: "未対応に戻す",
-    dateLabel: "受けた日", catLabel: "区分",
-    stat2: "3日以上 放置",
-    headOpen: "未対応（待たせている順）",
+    sub: "まだ手をつけていないものが、ふるい順に ならびます",
+    open: "つくりかけ", done: "できあがり",
+    toTo: "できあがりにする", toBack: "つくりかけに もどす",
+    dateLabel: "思いついた日", catLabel: "いまの段階",
+    stat2: "3日いじょう ほったらかし",
+    headOpen: "つくりかけ（ふるい順）",
   },
   stage: {
-    sub: "どの段階で止まっているかが分かります",
-    open: "進行中", done: "完了",
-    toTo: "完了にする", toBack: "進行中に戻す",
-    dateLabel: "受け入れた日", catLabel: "いまの段階",
-    stat2: "7日以上 動きなし",
-    headOpen: "進行中",
+    sub: "どの段階で とまっているかが わかります",
+    open: "つくりかけ", done: "できあがり",
+    toTo: "できあがりにする", toBack: "つくりかけに もどす",
+    dateLabel: "思いついた日", catLabel: "いまの段階",
+    stat2: "7日いじょう ほったらかし",
+    headOpen: "つくりかけ",
   },
   due: {
-    sub: "期限が近い順に並びます",
-    open: "未完了", done: "完了",
-    toTo: "完了にする", toBack: "未完了に戻す",
-    dateLabel: "期限", catLabel: "種別",
-    stat2: "期限切れ",
-    headOpen: "未完了（期限が近い順）",
+    sub: "しめきりが ちかい順に ならびます",
+    open: "まだ", done: "できあがり",
+    toTo: "できあがりにする", toBack: "つくりかけに もどす",
+    dateLabel: "しめきり", catLabel: "しゅるい",
+    stat2: "しめきり ぎれ",
+    headOpen: "まだ（しめきりが ちかい順）",
   },
 }[LAYOUT];
 
-/** n日前の日付。マイナスを渡すとn日後（"due" の見本データで使う） */
+/** n日前の日付。マイナスを渡すとn日後 */
 const ago = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 const today = () => ago(0);
 
@@ -103,35 +86,33 @@ const diff = (d: string) =>
     (new Date(d + "T00:00:00").getTime() - new Date(today() + "T00:00:00").getTime()) / 86400000
   );
 
-/** 何日待たせているか（"queue" / "stage" 用） */
+/** 何日そのままか */
 const waiting = (d: string) => Math.max(0, -diff(d));
 
 /**
- * 見本データ。/build でこの中身を題材に合わせて入れ替える。
- * ⚠ 実在の人名・会社名・連絡先は使わない。件数は12〜15件（少ないと画面が寂しく見える）
+ * 見本データ。12本（つくりかけ9・できあがり3）。
+ * 駅名は実在のものを使い、人名・連絡先は使わない。
  */
-const SAMPLE: Record[] = [
-  { id: "s01", name: "佐藤さん（中2）", category: "LINE",   note: "数学と英語、週2希望。木曜以外",        date: ago(0),  done: false },
-  { id: "s02", name: "田村さん（小5）", category: "電話",   note: "折り返し希望 18時以降",               date: ago(1),  done: false },
-  { id: "s03", name: "鈴木さん（高1）", category: "紹介",   note: "在籍生のご家族から。物理を見てほしい",  date: ago(1),  done: false },
-  { id: "s04", name: "中村さん（中3）", category: "メール", note: "受験相談。志望校はまだ決めていない",   date: ago(2),  done: false },
-  { id: "s05", name: "渡辺さん（中2）", category: "紹介",   note: "平日夕方のみ。部活が19時まで",         date: ago(3),  done: false },
-  { id: "s06", name: "小林さん（中1）", category: "LINE",   note: "体験授業の日程を調整中",              date: ago(4),  done: false },
-  { id: "s07", name: "松本さん（小4）", category: "メール", note: "兄弟割引について聞かれている",         date: ago(5),  done: false },
-  { id: "s08", name: "山口さん（小6）", category: "電話",   note: "料金表を送ってほしいとのこと",         date: ago(6),  done: false },
-  { id: "s09", name: "吉田さん（高2）", category: "LINE",   note: "夏期講習の残席を確認したい",           date: ago(9),  done: false },
-  { id: "s10", name: "井上さん（中3）", category: "電話",   note: "面談日程を確定。来週火曜18時",         date: ago(12), done: true },
-  { id: "s11", name: "清水さん（高3）", category: "LINE",   note: "資料送付済み。返事待ち",              date: ago(14), done: true },
-  { id: "s12", name: "森さん（小3）",   category: "紹介",   note: "体験のあと入会。4月から週1",          date: ago(16), done: true },
-  { id: "s13", name: "大野さん（中1）", category: "メール", note: "他塾と比較検討中とのこと",            date: ago(18), done: true },
-  { id: "s14", name: "岡田さん（高1）", category: "LINE",   note: "今回は見送りとご連絡あり",            date: ago(21), done: true },
+const SAMPLE: Rosen[] = [
+  { id: "s01", title: "そうぞう1号線",    stage: "駅えらび",   stations: "田端 → 王子 → 赤羽",           date: ago(0),  done: false },
+  { id: "s02", title: "きたぐちシャトル",  stage: "駅えらび",   stations: "十条 → 板橋 → 大塚",            date: ago(1),  done: false },
+  { id: "s03", title: "かもめライン",      stage: "駅えらび",   stations: "大井町 → 大森 → 蒲田",          date: ago(2),  done: false },
+  { id: "s04", title: "したまち急行",      stage: "ルートぎめ", stations: "錦糸町 → 亀戸 → 平井／つなぎ方 まよい中", date: ago(4),  done: false },
+  { id: "s05", title: "ぐるっと環状線",    stage: "ルートぎめ", stations: "高円寺 → 阿佐ケ谷 → 荻窪",      date: ago(6),  done: false },
+  { id: "s06", title: "ゆめのかけはし線",  stage: "ルートぎめ", stations: "日暮里 → 三河島 → 南千住",      date: ago(9),  done: false },
+  { id: "s07", title: "あさひ快速",        stage: "下書き",     stations: "大崎 → 五反田 → 目黒",          date: ago(11), done: false },
+  { id: "s08", title: "かわぞい線",        stage: "下書き",     stations: "小岩 → 新小岩 → 亀戸",          date: ago(13), done: false },
+  { id: "s09", title: "そうぞう2号線",     stage: "下書き",     stations: "巣鴨 → 駒込 → 田端／1号線とつなぐ", date: ago(16), done: false },
+  { id: "s10", title: "みなとゆき",        stage: "清書ずみ",   stations: "浜松町 → 田町 → 品川",          date: ago(18), done: true },
+  { id: "s11", title: "にしぐち線",        stage: "清書ずみ",   stations: "中野 → 東中野 → 大久保",        date: ago(20), done: true },
+  { id: "s12", title: "はじめての1本",     stage: "清書ずみ",   stations: "池袋 → 目白 → 高田馬場",        date: ago(21), done: true },
 ];
 
 /** 一覧をどう束ねるか。LAYOUT ごとに変わる */
-type Group = { key: string; label: string; mark?: "late" | "now"; items: Record[] };
+type Group = { key: string; label: string; mark?: "late" | "now"; items: Rosen[] };
 
-function grouped(list: Record[], filter: Filter): Group[] {
-  const head = filter === "open" ? TEXT.headOpen : filter === "done" ? TEXT.done : "すべて";
+function grouped(list: Rosen[], filter: Filter): Group[] {
+  const head = filter === "open" ? TEXT.headOpen : filter === "done" ? TEXT.done : "ぜんぶ";
 
   if (LAYOUT === "stage" && filter === "open") {
     // 段階ごとに束ねる。CATEGORIES の順に並べ、中身が無い段階は出さない
@@ -139,16 +120,16 @@ function grouped(list: Record[], filter: Filter): Group[] {
       key: c,
       label: c,
       mark: undefined,
-      items: list.filter((i) => i.category === c),
+      items: list.filter((i) => i.stage === c),
     })).filter((g) => g.items.length > 0);
   }
 
   if (LAYOUT === "due" && filter === "open") {
     const buckets: Group[] = [
-      { key: "late",  label: "期限が過ぎている", mark: "late", items: [] },
-      { key: "now",   label: "今日・明日",       mark: "now",  items: [] },
-      { key: "week",  label: "今週のうち",                     items: [] },
-      { key: "later", label: "それ以降",                       items: [] },
+      { key: "late",  label: "しめきりが すぎている", mark: "late", items: [] },
+      { key: "now",   label: "今日・あした",          mark: "now",  items: [] },
+      { key: "week",  label: "今週のうち",                          items: [] },
+      { key: "later", label: "それいこう",                          items: [] },
     ];
     list.forEach((i) => {
       const d = diff(i.date);
@@ -163,12 +144,12 @@ function grouped(list: Record[], filter: Filter): Group[] {
   return [{ key: "all", label: head, items: list }];
 }
 
-/** 行の右に出す小さなバッジ。LAYOUT ごとに意味が変わる */
-function rowBadge(r: Record): { text: string; kind: "warn" | "danger" } | null {
+/** 行の右に出す小さなバッジ。何日そのままかを出す */
+function rowBadge(r: Rosen): { text: string; kind: "warn" | "danger" } | null {
   if (r.done) return null;
   if (LAYOUT === "due") {
     const d = diff(r.date);
-    if (d < 0) return { text: `${-d}日 超過`, kind: "danger" };
+    if (d < 0) return { text: `${-d}日 すぎた`, kind: "danger" };
     if (d === 0) return { text: "今日", kind: "warn" };
     return null;
   }
@@ -178,21 +159,21 @@ function rowBadge(r: Record): { text: string; kind: "warn" | "danger" } | null {
 }
 
 export default function Home() {
-  const [items, setItems] = useState<Record[]>([]);
-  const [appName, setAppName] = useState("お問い合わせ管理");
+  const [items, setItems] = useState<Rosen[]>([]);
+  const [appName, setAppName] = useState("空想路線ノート");
   const [loaded, setLoaded] = useState(false);
 
   const [view, setView] = useState<View>("list");
   const [filter, setFilter] = useState<Filter>("open");
   const [q, setQ] = useState("");
-  const [editing, setEditing] = useState<Record | null>(null);
+  const [editing, setEditing] = useState<Rosen | null>(null);
 
-  const [form, setForm] = useState({ name: "", category: CATEGORIES[0], note: "", date: today() });
+  const [form, setForm] = useState({ title: "", stage: CATEGORIES[0], stations: "", date: today() });
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      setItems(raw ? (JSON.parse(raw) as Record[]) : SAMPLE);
+      setItems(raw ? (JSON.parse(raw) as Rosen[]) : SAMPLE);
       const n = localStorage.getItem(NAME_KEY);
       if (n) setAppName(n);
     } catch {
@@ -207,7 +188,7 @@ export default function Home() {
     localStorage.setItem(NAME_KEY, appName);
   }, [items, appName, loaded]);
 
-  // 見本データのまま触っていない状態か（1件でも足す・消すと false になる）
+  // 見本データのまま触っていない状態か（1本でも足す・消すと false になる）
   const isSample = items.length === SAMPLE.length && items.every((i) => i.id.startsWith("s"));
 
   const counts = useMemo(
@@ -219,7 +200,7 @@ export default function Home() {
     [items]
   );
 
-  /** 2つ目の統計。LAYOUT で意味が変わる */
+  /** 2つ目の数字。何日も動いていない路線の本数 */
   const attention = useMemo(() => {
     const open = items.filter((i) => !i.done);
     if (LAYOUT === "due") return open.filter((i) => diff(i.date) < 0).length;
@@ -231,32 +212,32 @@ export default function Home() {
     const k = q.trim().toLowerCase();
     return items
       .filter((i) => (filter === "all" ? true : filter === "open" ? !i.done : i.done))
-      .filter((i) => !k || (i.name + i.note + i.category).toLowerCase().includes(k))
+      .filter((i) => !k || (i.title + i.stations + i.stage).toLowerCase().includes(k))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [items, filter, q]);
 
   const groups = useMemo(() => grouped(shown, filter), [shown, filter]);
 
   function resetForm() {
-    setForm({ name: "", category: CATEGORIES[0], note: "", date: today() });
+    setForm({ title: "", stage: CATEGORIES[0], stations: "", date: today() });
     setEditing(null);
   }
 
   function save() {
-    const name = form.name.trim();
-    if (!name) return;
+    const title = form.title.trim();
+    if (!title) return;
     if (editing) {
-      setItems(items.map((i) => (i.id === editing.id ? { ...i, ...form, name } : i)));
+      setItems(items.map((i) => (i.id === editing.id ? { ...i, ...form, title } : i)));
     } else {
-      setItems([...items, { id: String(Date.now()), ...form, name, done: false }]);
+      setItems([...items, { id: String(Date.now()), ...form, title, done: false }]);
     }
     resetForm();
     setView("list");
   }
 
-  function startEdit(r: Record) {
+  function startEdit(r: Rosen) {
     setEditing(r);
-    setForm({ name: r.name, category: r.category, note: r.note, date: r.date });
+    setForm({ title: r.title, stage: r.stage, stations: r.stations, date: r.date });
     setView("new");
   }
 
@@ -265,14 +246,14 @@ export default function Home() {
 
   const NAV: { k: View; label: string; count?: number }[] = [
     { k: "list", label: "一覧", count: counts.open },
-    { k: "new", label: "新規登録" },
+    { k: "new", label: "新しい路線" },
     { k: "settings", label: "設定" },
   ];
 
   const titles: { [K in View]: [string, string] } = {
     list: ["一覧", TEXT.sub],
-    new: [editing ? "編集" : "新規登録", "入力して保存すると、一覧に追加されます"],
-    settings: ["設定", "表示名の変更と、データの初期化"],
+    new: [editing ? "路線をなおす" : "新しい路線", "入れて ほぞんすると、一覧に ふえます"],
+    settings: ["設定", "画面の名前を かえる／データを 入れなおす"],
   };
 
   return (
@@ -297,17 +278,27 @@ export default function Home() {
             </button>
           ))}
         </div>
-        <div className="side-foot">/build で、あなたの題材に作り替わります</div>
+        <div className="side-foot">思いついたら、まず1{UNIT} ふやす</div>
       </nav>
 
       {/* ───────── 本体 ───────── */}
       <div className="main">
         <header className="topbar">
-          <span className="t">{titles[view][0]}</span>
-          <span className="d">{titles[view][1]}</span>
+          <div className="topbar-main">
+            <span className="t">{titles[view][0]}</span>
+            {view === "list" ? (
+              <div className="d topbar-desc">
+                <div>{TEXT.sub}</div>
+                <div>ずっと とまっている路線には、日数のしるしが つきます。</div>
+                <div>できあがったら、行の「{TEXT.toTo}」を おしてください。</div>
+              </div>
+            ) : (
+              <span className="d">{titles[view][1]}</span>
+            )}
+          </div>
           {view === "list" && (
             <span className="right">
-              <button className="btn" onClick={() => { resetForm(); setView("new"); }}>新規登録</button>
+              <button className="btn" onClick={() => { resetForm(); setView("new"); }}>新しい路線</button>
             </span>
           )}
         </header>
@@ -318,28 +309,28 @@ export default function Home() {
             <>
               {isSample && (
                 <div className="notice">
-                  表示中のデータは<b>見本</b>です。そのまま触って試せます。
-                  消したいときは、左メニューの<b>設定</b>から。
+                  いま出ているのは<b>見本</b>です。そのまま さわって ためせます。
+                  けしたいときは、左メニューの<b>設定</b>から。
                 </div>
               )}
 
               <div className="stats">
                 <div className="stat"><div className="n accent">{counts.open}</div><div className="l">{TEXT.open}</div></div>
                 <div className="stat"><div className="n">{attention}</div><div className="l">{TEXT.stat2}</div></div>
-                <div className="stat"><div className="n">{counts.all}</div><div className="l">全{UNIT}</div></div>
+                <div className="stat"><div className="n">{counts.all}</div><div className="l">ぜんぶで</div></div>
               </div>
 
               <div className="filters">
                 <div className="search">
                   <input className="field" value={q} onChange={(e) => setQ(e.target.value)}
-                    placeholder="名前・メモで検索" />
+                    placeholder="路線の名前・駅の名前で さがす" />
                 </div>
                 <div className="seg">
                   {(["open", "done", "all"] as Filter[]).map((f) => (
                     <button key={f} aria-pressed={filter === f} onClick={() => setFilter(f)}>
                       {f === "open" ? `${TEXT.open} ${counts.open}`
                         : f === "done" ? `${TEXT.done} ${counts.done}`
-                        : `全部 ${counts.all}`}
+                        : `ぜんぶ ${counts.all}`}
                     </button>
                   ))}
                 </div>
@@ -349,13 +340,15 @@ export default function Home() {
                 {shown.length === 0 ? (
                   <>
                     <div className="list-head">
-                      {filter === "open" ? TEXT.headOpen : filter === "done" ? TEXT.done : "すべて"}
+                      {filter === "open" ? TEXT.headOpen : filter === "done" ? TEXT.done : "ぜんぶ"}
                       <span className="count">0 {UNIT}</span>
                     </div>
                     <div className="empty">
-                      <div className="t">{q ? "見つかりませんでした" : "ここに表示するものがありません"}</div>
+                      <div className="t">{q ? "見つかりませんでした" : "まだ路線が ありません"}</div>
                       <div className="d">
-                        {q ? "検索の言葉を変えてみてください。" : "右上の「新規登録」から追加できます。"}
+                        {q
+                          ? "さがす言葉を かえてみてください。"
+                          : "右上の「新しい路線」から、1本つくれます。"}
                       </div>
                     </div>
                   </>
@@ -372,20 +365,20 @@ export default function Home() {
                         return (
                           <div className="row" key={r.id}>
                             <div className="row-main">
-                              <div className="row-title">{r.name}</div>
-                              {r.note && <div className="row-sub">{r.note}</div>}
+                              <div className="row-title">{r.title}</div>
+                              {r.stations && <div className="row-sub">{r.stations}</div>}
                             </div>
                             <div className="row-meta">
                               {b && <span className={`badge badge-${b.kind}`}>{b.text}</span>}
                               {!(LAYOUT === "stage" && filter === "open") && (
-                                <span className="badge">{r.category}</span>
+                                <span className="badge">{r.stage}</span>
                               )}
                               <span className="row-time">{r.date.slice(5).replace("-", "/")}</span>
-                              <button className="btn-ghost" onClick={() => startEdit(r)}>編集</button>
+                              <button className="btn-ghost" onClick={() => startEdit(r)}>なおす</button>
                               <button className="btn-ghost" onClick={() => toggle(r.id)}>
                                 {r.done ? TEXT.toBack : TEXT.toTo}
                               </button>
-                              <button className="btn-ghost danger-btn" onClick={() => remove(r.id)}>削除</button>
+                              <button className="btn-ghost danger-btn" onClick={() => remove(r.id)}>けす</button>
                             </div>
                           </div>
                         );
@@ -402,20 +395,20 @@ export default function Home() {
           {view === "new" && (
             <div className="panel">
               <div className="form-row">
-                <label className="label" htmlFor="f-name">名前<span className="req">必須</span></label>
-                <input id="f-name" className="field" value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                <label className="label" htmlFor="f-title">路線の名前<span className="req">ひつよう</span></label>
+                <input id="f-title" className="field" value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
                   onKeyDown={(e) => { if (e.key === "Enter") save(); }}
-                  placeholder="例：Aさん（中2）" />
-                <span className="hint">あとで見て誰か分かる書き方にします</span>
+                  placeholder="れい：そうぞう1号線" />
+                <span className="hint">あとで見て どれか わかる名前にします</span>
               </div>
 
               <div className="form-row">
                 <div className="inline">
                   <div>
-                    <label className="label" htmlFor="f-cat">{TEXT.catLabel}</label>
-                    <select id="f-cat" className="select" value={form.category}
-                      onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                    <label className="label" htmlFor="f-stage">{TEXT.catLabel}</label>
+                    <select id="f-stage" className="select" value={form.stage}
+                      onChange={(e) => setForm({ ...form, stage: e.target.value })}>
                       {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
                     </select>
                   </div>
@@ -428,22 +421,23 @@ export default function Home() {
               </div>
 
               <div className="form-row">
-                <label className="label" htmlFor="f-note">メモ</label>
-                <textarea id="f-note" className="field" value={form.note}
-                  onChange={(e) => setForm({ ...form, note: e.target.value })}
-                  placeholder="希望曜日・科目・折り返し時間など" />
+                <label className="label" htmlFor="f-stations">通る駅</label>
+                <textarea id="f-stations" className="field" value={form.stations}
+                  onChange={(e) => setForm({ ...form, stations: e.target.value })}
+                  placeholder="田端 → 王子 → 赤羽 → 十条" />
+                <span className="hint">思いついた順に ならべて書きます。あとから なおせます</span>
               </div>
 
               <div className="form-actions">
-                <button className="btn" onClick={save} disabled={!form.name.trim()}>
-                  {editing ? "保存する" : "一覧に追加"}
+                <button className="btn" onClick={save} disabled={!form.title.trim()}>
+                  {editing ? "ほぞんする" : "一覧に ふやす"}
                 </button>
                 <button className="btn-ghost" onClick={() => { resetForm(); setView("list"); }}>やめる</button>
                 <span className="spacer" />
                 {editing && (
                   <button className="btn-ghost danger-btn"
                     onClick={() => { remove(editing.id); resetForm(); setView("list"); }}>
-                    この1{UNIT}を削除
+                    この1{UNIT}を けす
                   </button>
                 )}
               </div>
@@ -454,29 +448,29 @@ export default function Home() {
           {view === "settings" && (
             <div className="panel">
               <div className="form-row">
-                <label className="label" htmlFor="f-app">画面の表示名</label>
+                <label className="label" htmlFor="f-app">画面の名前</label>
                 <input id="f-app" className="field" value={appName}
                   onChange={(e) => setAppName(e.target.value)} />
-                <span className="hint">左上に表示されます。変えるとすぐ反映されます</span>
+                <span className="hint">左上に出ます。かえると すぐ かわります</span>
               </div>
 
               <div className="form-row">
                 <label className="label">データ</label>
                 <div className="inline">
-                  <button className="btn-ghost" onClick={() => setItems(SAMPLE)}>見本データを入れ直す</button>
+                  <button className="btn-ghost" onClick={() => setItems(SAMPLE)}>見本を入れなおす</button>
                   <button className="btn-ghost danger-btn"
-                    onClick={() => { if (confirm("全部消します。よろしいですか？")) setItems([]); }}>
-                    全部消す
+                    onClick={() => { if (confirm("ぜんぶ けします。いいですか？")) setItems([]); }}>
+                    ぜんぶ けす
                   </button>
                 </div>
                 <span className="hint">
-                  現在 {counts.all} {UNIT}（{TEXT.open} {counts.open} / {TEXT.done} {counts.done}）
+                  いま {counts.all} {UNIT}（{TEXT.open} {counts.open} / {TEXT.done} {counts.done}）
                 </span>
               </div>
 
               <p className="note">
                 データはこの端末のブラウザにだけ保存されます。
-                別の端末や他の人とは共有されません（共有は第3回で扱います）。
+                ほかの端末や 友だちとは 共有されません。
               </p>
             </div>
           )}
