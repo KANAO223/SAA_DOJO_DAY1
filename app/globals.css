@@ -257,6 +257,39 @@ textarea.field { resize: vertical; min-height: 76px; line-height: 1.7; }
 .row.clickable { cursor: pointer; }
 .row-check { flex: none; }
 
+/* 路線図（SVG）。色はすべて変数で、直値は書かない */
+.map-figure {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  margin-top: var(--s3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.map-panel {
+  padding: 0 var(--s6) var(--s5);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.map-panel .map-figure { margin-top: 0; padding-top: var(--s4); }
+
+/* 通る駅の並び。順番つきの小さなラベル */
+.chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }
+.chip {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  padding: 2px var(--s2) 2px var(--s3); border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text-sub); font-size: var(--t-xs); font-weight: 700;
+}
+.chip .i { color: var(--accent); font-variant-numeric: tabular-nums; }
+.chip .x {
+  border: none; background: none; color: var(--text-weak);
+  font-size: var(--t-sm); line-height: 1; cursor: pointer; padding: 0 2px;
+}
+.chip .x:hover { color: var(--danger); }
+
 @media (max-width: 860px) {
   .shell { grid-template-columns: 1fr; }
   .side {
